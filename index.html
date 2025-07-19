@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Red de Comunicación - Nodos Interconectados con Referencias</title>
+    <style>
+        /* Estilos generales del cuerpo y fondo */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            height: 100vh;
+            overflow: hidden;
+            color: white;
+        }
+
+        /* Contenedor principal de la red */
+        .network-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Estilo base para todos los nodos */
+        .node {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 2px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+
+        /* Efecto al pasar el cursor sobre un nodo */
+        .node:hover {
+            transform: scale(1.2) !important;
+            box-shadow: 0 12px 48px rgba(255,255,255,0.2);
+            z-index: 20;
+        }
+
+        /* Estilo para el nodo activo (seleccionado) */
+        .node.active {
+            transform: scale(1.3) !important;
+            box-shadow: 0 0 30px rgba(0,255,255,0.5);
+            border: 3px solid #00ffff;
+            z-index: 25;
+        }
+
+        /* Estilo base para las líneas de conexión */
+        .connection {
+            position: absolute;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(0,255,255,0.8), rgba(255,0,255,0.8));
+            transform-origin: left center;
+            z-index: 1;
+            opacity: 0.3;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0,255,255,0.3);
+        }
+
+        /* Estilo para las conexiones resaltadas */
+        .connection.highlight {
+            opacity: 1;
+            height: 3px;
+            box-shadow: 0 0 20px rgba(0,255,255,0.8);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .connection::after {
+            content: '';
+            position: absolute;
+            right: -8px;
+            top: -3px;
+            width: 0;
+            height: 0;
+            border-left: 8px solid rgba(0,255,255,0.8);
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+        }
+
+        /* Tamaños de nodos */
+        .core-node { width: 180px; height: 180px; font-size: 14px; background: radial-gradient(circle, #ff6b6b, #ee5a24); animation: coreGlow 3s infinite alternate; }
+        .primary-node { width: 120px; height: 120px; font-size: 12px; }
+        .secondary-node { width: 90px; height: 90px; font-size: 11px; }
+        .detail-node { width: 70px; height: 70px; font-size: 10px; }
+
+        @keyframes coreGlow {
+            0% { box-shadow: 0 0 20px rgba(255,107,107,0.5); }
+            100% { box-shadow: 0 0 40px rgba(255,107,107,0.8); }
+        }
+
+        /* Colores por categoría */
+        .elementos { background: radial-gradient(circle, #4ecdc4, #44a08d); }
+        .proceso { background: radial-gradient(circle, #f093fb, #f5576c); }
+        .barreras { background: radial-gradient(circle, #ffecd2, #fcb69f); color: #333; }
+        .efectividad { background: radial-gradient(circle, #a8edea, #fed6e3); color: #333; }
+        .canales { background: radial-gradient(circle, #ff9a9e, #fecfef); color: #333; }
+        .contexto { background: radial-gradient(circle, #84fab0, #8fd3f4); }
+        .feedback { background: radial-gradient(circle, #fa709a, #fee140); color: #333; }
+
+        /* Panel de información */
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 350px;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(15px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 30;
+            transition: all 0.3s ease;
+        }
+
+        .info-title { color: #00ffff; font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+        .info-description { font-size: 13px; line-height: 1.4; margin-bottom: 10px; }
+        .info-citation { font-size: 11px; color: #00ffff; font-style: italic; margin-bottom: 10px; }
+        .connections-info { font-size: 11px; color: #aaa; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; }
+
+        /* Controles */
+        .controls { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .control-btn { background: rgba(0,255,255,0.2); border: 1px solid rgba(0,255,255,0.5); color: white; padding: 10px 15px; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; font-size: 12px; }
+        .control-btn:hover { background: rgba(0,255,255,0.4); transform: translateY(-2px); }
+
+        /* Leyenda */
+        .legend { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); backdrop-filter: blur(15px); border-radius: 15px; padding: 15px; border: 1px solid rgba(255,255,255,0.2); font-size: 11px; max-width: 200px; }
+        .legend-item { display: flex; align-items: center; margin: 5px 0; }
+        .legend-color { width: 15px; height: 15px; border-radius: 50%; margin-right: 8px; }
+
+        /* Panel de Bibliografía */
+        .references-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            background: rgba(15, 20, 40, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 15px;
+            padding: 30px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+        }
+        .references-panel.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        .references-panel h2 { color: #00ffff; margin-top: 0; border-bottom: 1px solid #00ffff; padding-bottom: 10px; }
+        .references-panel ul { list-style: none; padding: 0; }
+        .references-panel li { margin-bottom: 15px; font-size: 13px; line-height: 1.5; }
+        .references-panel .close-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+
+        /* Panel de autoría */
+        .author-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 8px;
+            padding: 10px 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 30;
+            font-size: 11px;
+            color: #ccc;
+            line-height: 1.4;
+        }
+        .author-info strong {
+            color: white;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .author-info span {
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="network-container" id="network">
+        <!-- Nodos se generan dinámicamente -->
+    </div>
+    
+    <div class="info-panel" id="info-panel">
+        <div class="info-title" id="info-title">Red de Comunicación Interactiva</div>
+        <div class="info-description" id="info-description">Haz clic en un nodo para explorar su concepto y conexiones.</div>
+        <div class="info-citation" id="info-citation"></div>
+        <div class="connections-info" id="connections-info">💡 Las líneas muestran las relaciones entre elementos.</div>
+    </div>
+
+    <div class="controls">
+        <button class="control-btn" onclick="showFlow()">Ver Flujo</button>
+        <button class="control-btn" onclick="resetView()">Reset</button>
+        <button class="control-btn" onclick="showAllConnections()">Todas las Conexiones</button>
+        <button class="control-btn" onclick="toggleReferences(true)">Bibliografía</button>
+    </div>
+
+    <div class="legend">
+        <!-- Contenido se genera dinámicamente -->
+    </div>
+    
+    <div class="author-info">
+        <strong>Zayra Jimenez Hinojos</strong>
+        <span>UNADM - Lic. Políticas y Proyectos Sociales</span>
+        <span>Asignatura: Comunicación de Desarrollo</span>
+    </div>
+
+    <div class="references-panel" id="references-panel">
+        <button class="close-btn" onclick="toggleReferences(false)">&times;</button>
+        <h2>Referencias Bibliográficas</h2>
+        <ul id="references-list"></ul>
+    </div>
+
+    <script>
+        // Base de datos de referencias bibliográficas
+        const references = {
+            'Berlo1960': { citation: '(Berlo, 1960)', full: 'Berlo, D. K. (1960). <em>The Process of Communication: An Introduction to Theory and Practice</em>. Holt, Rinehart and Winston.' },
+            'ShannonWeaver1949': { citation: '(Shannon & Weaver, 1949)', full: 'Shannon, C. E., & Weaver, W. (1949). <em>The Mathematical Theory of Communication</em>. University of Illinois Press.' },
+            'Schramm1954': { citation: '(Schramm, 1954)', full: 'Schramm, W. (1954). How communication works. In W. Schramm (Ed.), <em>The process and effects of mass communication</em> (pp. 3-26). University of Illinois Press.' },
+            'Watzlawick1967': { citation: '(Watzlawick, Beavin, & Jackson, 1967)', full: 'Watzlawick, P., Beavin, J. H., & Jackson, D. D. (1967). <em>Pragmatics of Human Communication: A Study of Interactional Patterns, Pathologies, and Paradoxes</em>. W. W. Norton & Company.' },
+            'Wiener1948': { citation: '(Wiener, 1948)', full: 'Wiener, N. (1948). <em>Cybernetics: Or Control and Communication in the Animal and the Machine</em>. MIT Press.' },
+            'Mehrabian1971': { citation: '(Mehrabian, 1971)', full: 'Mehrabian, A. (1971). <em>Silent Messages</em>. Wadsworth.' }
+        };
+
+        // Información de los nodos con claves de referencia
+        const nodeInfo = {
+            'comunicacion-core': { title: 'COMUNICACIÓN EFECTIVA', description: 'Proceso sistémico donde los elementos interactúan para lograr un intercambio de significados, influyendo en la realidad y las relaciones.', connections: 'Resultado de la interacción de todos los elementos.', refKey: 'Watzlawick1967' },
+            'emisor': { title: 'EMISOR (Fuente)', description: 'Inicia el proceso, codificando un mensaje. Sus habilidades comunicativas, actitudes y conocimiento son cruciales.', connections: 'Influye en → Codificación. Recibe → Retroalimentación.', refKey: 'Berlo1960' },
+            'receptor': { title: 'RECEPTOR', description: 'Decodifica el mensaje e interpreta su significado. Sus características son tan importantes como las del emisor.', connections: 'Recibe de → Decodificación. Genera → Retroalimentación.', refKey: 'Berlo1960' },
+            'mensaje': { title: 'MENSAJE', description: 'Contenido (código, estructura) que se transmite. Es el objeto central del proceso comunicativo.', connections: 'Proviene de → Codificación. Se transmite por → Canal.', refKey: 'Berlo1960' },
+            'canal': { title: 'CANAL', description: 'Medio físico o sensorial a través del cual viaja la señal que transporta el mensaje. Puede tener una capacidad limitada.', connections: 'Transporta → Mensaje. Afectado por → Barreras.', refKey: 'ShannonWeaver1949' },
+            'codificacion': { title: 'CODIFICACIÓN', description: 'Proceso de convertir las ideas del emisor en un código o lenguaje compartido, influenciado por su campo de experiencia.', connections: 'Realizada por → Emisor. Genera → Mensaje.', refKey: 'Schramm1954' },
+            'decodificacion': { title: 'DECODIFICACIÓN', description: 'Proceso de interpretar el código para reconstruir el significado, influenciado por el campo de experiencia del receptor.', connections: 'Recibe de → Canal. Resultado hacia → Receptor.', refKey: 'Schramm1954' },
+            'contexto': { title: 'CONTEXTO', description: 'El marco relacional y situacional que define la comunicación. Todo comportamiento es comunicación dentro de un contexto.', connections: 'Influye en → Codificación, Decodificación.', refKey: 'Watzlawick1967' },
+            'retroalimentacion': { title: 'RETROALIMENTACIÓN (Feedback)', description: 'Mecanismo de control que permite al emisor ajustar su mensaje según la respuesta del receptor, convirtiendo el modelo en circular.', connections: 'Generada por → Receptor. Retorna a → Emisor.', refKey: 'Wiener1948' },
+            'barreras': { title: 'BARRERAS', description: 'Cualquier factor que interfiere o distorsiona el mensaje. El "ruido" es el principal tipo de barrera.', connections: 'Afecta → Canal. Incluye → Ruido.', refKey: 'ShannonWeaver1949' },
+            'ruido': { title: 'RUIDO', description: 'Interferencias no deseadas en el canal que se añaden a la señal, haciendo que la señal recibida sea diferente a la enviada.', connections: 'Componente de → Barreras.', refKey: 'ShannonWeaver1949' },
+            'claridad': { title: 'CLARIDAD', description: 'Componente de la fidelidad del mensaje, relacionado con la habilidad del emisor para codificar de forma efectiva.', connections: 'Mejora → Codificación.', refKey: 'Berlo1960' },
+            'empatia': { title: 'EMPATÍA', description: 'Considerada una habilidad comunicativa clave del emisor y receptor para alinearse con el marco de referencia del otro.', connections: 'Mejora → Emisor y Receptor.', refKey: 'Berlo1960' },
+            'verbal': { title: 'CANAL VERBAL', description: 'Uso de palabras para transmitir significado. Su importancia relativa depende del contexto y del componente afectivo.', connections: 'Tipo de → Canal.', refKey: 'Mehrabian1971' },
+            'no-verbal': { title: 'CANAL NO VERBAL', description: 'Incluye tono de voz, gestos y expresiones faciales. Transmite principalmente información actitudinal y emocional.', connections: 'Tipo de → Canal.', refKey: 'Mehrabian1971' },
+            'cultural': { title: 'CONTEXTO CULTURAL', description: 'El campo de experiencia compartido (o no) que dicta los códigos y significados en una sociedad.', connections: 'Componente del → Contexto.', refKey: 'Schramm1954' },
+            'situacional': { title: 'CONTEXTO SITUACIONAL', description: 'La pragmática de la comunicación; cómo el "aquí y ahora" afecta la interacción y el significado de los mensajes.', connections: 'Componente del → Contexto.', refKey: 'Watzlawick1967' }
+        };
+        
+        const nodesData = [
+            { id: 'core', class: 'node core-node', text: 'COMUNICACIÓN<br>EFECTIVA' },
+            { id: 'emisor', class: 'node primary-node elementos', text: 'EMISOR' },
+            { id: 'receptor', class: 'node primary-node elementos', text: 'RECEPTOR' },
+            { id: 'mensaje', class: 'node primary-node proceso', text: 'MENSAJE' },
+            { id: 'canal', class: 'node primary-node canales', text: 'CANAL' },
+            { id: 'codificacion', class: 'node secondary-node proceso', text: 'CODIFICACIÓN' },
+            { id: 'decodificacion', class: 'node secondary-node proceso', text: 'DECODIFICACIÓN' },
+            { id: 'contexto', class: 'node secondary-node contexto', text: 'CONTEXTO' },
+            { id: 'retroalimentacion', class: 'node secondary-node feedback', text: 'RETROALIMENTACIÓN' },
+            { id: 'barreras', class: 'node secondary-node barreras', text: 'BARRERAS' },
+            { id: 'ruido', class: 'node detail-node barreras', text: 'RUIDO' },
+            { id: 'claridad', class: 'node detail-node efectividad', text: 'CLARIDAD' },
+            { id: 'empatia', class: 'node detail-node efectividad', text: 'EMPATÍA' },
+            { id: 'verbal', class: 'node detail-node canales', text: 'VERBAL' },
+            { id: 'no-verbal', class: 'node detail-node canales', text: 'NO VERBAL' },
+            { id: 'cultural', class: 'node detail-node contexto', text: 'CULTURAL' },
+            { id: 'situacional', class: 'node detail-node contexto', text: 'SITUACIONAL' }
+        ];
+
+        const connectionsData = [
+            { from: 'core', to: 'emisor' }, { from: 'core', to: 'receptor' }, { from: 'core', to: 'mensaje' }, { from: 'core', to: 'canal' },
+            { from: 'emisor', to: 'codificacion' }, { from: 'codificacion', to: 'mensaje' }, { from: 'mensaje', to: 'canal' }, { from: 'canal', to: 'decodificacion' },
+            { from: 'decodificacion', to: 'receptor' }, { from: 'receptor', to: 'retroalimentacion' }, { from: 'retroalimentacion', to: 'emisor' },
+            { from: 'contexto', to: 'codificacion' }, { from: 'contexto', to: 'decodificacion' }, { from: 'barreras', to: 'canal' },
+            { from: 'ruido', to: 'barreras' }, { from: 'claridad', to: 'codificacion' }, { from: 'empatia', to: 'emisor' },
+            { from: 'verbal', to: 'canal' }, { from: 'no-verbal', to: 'canal' }, { from: 'cultural', to: 'contexto' }, { from: 'situacional', to: 'contexto' }
+        ];
+
+        let currentActive = null;
+        let isFlowActive = false;
+        const networkContainer = document.getElementById('network');
+
+        function createElements() {
+            nodesData.forEach(data => {
+                const nodeEl = document.createElement('div');
+                nodeEl.id = data.id;
+                nodeEl.className = data.class;
+                nodeEl.innerHTML = data.text;
+                nodeEl.dataset.info = data.id;
+                networkContainer.appendChild(nodeEl);
+            });
+
+            connectionsData.forEach(conn => {
+                const connectionEl = document.createElement('div');
+                connectionEl.classList.add('connection');
+                connectionEl.dataset.from = conn.from;
+                connectionEl.dataset.to = conn.to;
+                networkContainer.appendChild(connectionEl);
+            });
+
+            const legend = document.querySelector('.legend');
+            legend.innerHTML = `
+                <div style="color: #00ffff; font-weight: bold; margin-bottom: 10px;">Categorías</div>
+                <div class="legend-item"><div class="legend-color elementos"></div><span>Actores</span></div>
+                <div class="legend-item"><div class="legend-color proceso"></div><span>Proceso</span></div>
+                <div class="legend-item"><div class="legend-color canales"></div><span>Canales</span></div>
+                <div class="legend-item"><div class="legend-color barreras"></div><span>Obstáculos</span></div>
+                <div class="legend-item"><div class="legend-color efectividad"></div><span>Efectividad</span></div>
+                <div class="legend-item"><div class="legend-color contexto"></div><span>Contexto</span></div>
+                <div class="legend-item"><div class="legend-color feedback"></div><span>Feedback</span></div>
+            `;
+
+            const refList = document.getElementById('references-list');
+            const uniqueRefs = [...new Set(Object.values(nodeInfo).map(n => n.refKey))];
+            uniqueRefs.forEach(refKey => {
+                if (refKey && references[refKey]) {
+                    const li = document.createElement('li');
+                    li.innerHTML = references[refKey].full;
+                    refList.appendChild(li);
+                }
+            });
+        }
+
+        function positionNodes() {
+            const positions = {
+                core: { x: 0.5, y: 0.5 }, emisor: { x: 0.25, y: 0.3 }, codificacion: { x: 0.35, y: 0.2 },
+                mensaje: { x: 0.5, y: 0.15 }, canal: { x: 0.65, y: 0.2 }, decodificacion: { x: 0.75, y: 0.3 },
+                receptor: { x: 0.8, y: 0.5 }, retroalimentacion: { x: 0.5, y: 0.8 }, contexto: { x: 0.2, y: 0.7 },
+                barreras: { x: 0.8, y: 0.7 }, ruido: { x: 0.9, y: 0.85 }, claridad: { x: 0.25, y: 0.1 },
+                empatia: { x: 0.1, y: 0.4 }, verbal: { x: 0.6, y: 0.05 }, 'no-verbal': { x: 0.7, y: 0.05 },
+                cultural: { x: 0.1, y: 0.85 }, situacional: { x: 0.2, y: 0.9 }
+            };
+            Object.keys(positions).forEach(id => {
+                const node = document.getElementById(id);
+                if (node) {
+                    node.style.left = `calc(${positions[id].x * 100}% - ${node.offsetWidth / 2}px)`;
+                    node.style.top = `calc(${positions[id].y * 100}% - ${node.offsetHeight / 2}px)`;
+                }
+            });
+            positionConnections();
+        }
+
+        function positionConnections() {
+            document.querySelectorAll('.connection').forEach(conn => {
+                const fromNode = document.getElementById(conn.dataset.from);
+                const toNode = document.getElementById(conn.dataset.to);
+                if (fromNode && toNode) {
+                    const fromRect = fromNode.getBoundingClientRect();
+                    const toRect = toNode.getBoundingClientRect();
+                    const containerRect = networkContainer.getBoundingClientRect();
+                    const fromX = fromRect.left - containerRect.left + fromRect.width / 2;
+                    const fromY = fromRect.top - containerRect.top + fromRect.height / 2;
+                    const toX = toRect.left - containerRect.left + toRect.width / 2;
+                    const toY = toRect.top - containerRect.top + toRect.height / 2;
+                    const distance = Math.sqrt(Math.pow(toX - fromX, 2) + Math.pow(toY - fromY, 2));
+                    const angle = Math.atan2(toY - fromY, toX - fromX) * (180 / Math.PI);
+                    conn.style.width = `${distance}px`;
+                    conn.style.left = `${fromX}px`;
+                    conn.style.top = `${fromY}px`;
+                    conn.style.transform = `rotate(${angle}deg)`;
+                }
+            });
+        }
+
+        function updateInfoPanel(infoKey) {
+            const info = nodeInfo[infoKey];
+            const citationInfo = info.refKey ? references[info.refKey] : null;
+            document.getElementById('info-title').textContent = info.title;
+            document.getElementById('info-description').textContent = info.description;
+            document.getElementById('info-citation').textContent = citationInfo ? citationInfo.citation : '';
+            document.getElementById('connections-info').textContent = info.connections;
+        }
+
+        function highlightConnections(nodeId, state) {
+            document.querySelectorAll('.connection').forEach(conn => {
+                if (conn.dataset.from === nodeId || conn.dataset.to === nodeId) {
+                    conn.classList.toggle('highlight', state);
+                }
+            });
+        }
+
+        function handleNodeClick(e) {
+            if (isFlowActive) return;
+            const clickedNode = e.currentTarget;
+            if (currentActive === clickedNode) {
+                resetView();
+                return;
+            }
+            resetView();
+            currentActive = clickedNode;
+            clickedNode.classList.add('active');
+            updateInfoPanel(clickedNode.dataset.info);
+            highlightConnections(clickedNode.id, true);
+        }
+
+        window.resetView = function() {
+            if (currentActive) {
+                currentActive.classList.remove('active');
+                currentActive = null;
+            }
+            document.querySelectorAll('.node.active').forEach(n => n.classList.remove('active'));
+            document.querySelectorAll('.connection.highlight').forEach(c => c.classList.remove('highlight'));
+            document.getElementById('info-title').textContent = 'Red de Comunicación Interactiva';
+            document.getElementById('info-description').textContent = 'Haz clic en un nodo para explorar su concepto y conexiones.';
+            document.getElementById('info-citation').textContent = '';
+            document.getElementById('connections-info').textContent = '💡 Las líneas muestran las relaciones entre elementos.';
+        }
+        
+        window.showAllConnections = function() {
+            resetView();
+            document.querySelectorAll('.connection').forEach(c => c.classList.add('highlight'));
+        }
+
+        window.toggleReferences = function(show) {
+            document.getElementById('references-panel').classList.toggle('show', show);
+        }
+
+        async function showFlow() {
+            if (isFlowActive) return;
+            isFlowActive = true;
+            resetView();
+            const flowPath = ['emisor', 'codificacion', 'mensaje', 'canal', 'decodificacion', 'receptor', 'retroalimentacion'];
+            for (let i = 0; i < flowPath.length; i++) {
+                const nodeId = flowPath[i];
+                const node = document.getElementById(nodeId);
+                node.classList.add('active');
+                updateInfoPanel(node.dataset.info);
+                if (i > 0) {
+                    document.getElementById(flowPath[i-1]).classList.remove('active');
+                    const prevConn = document.querySelector(`.connection[data-from="${flowPath[i-2]}"][data-to="${flowPath[i-1]}"]`);
+                    if(prevConn) prevConn.classList.remove('highlight');
+                }
+                const connEl = document.querySelector(`.connection[data-from="${flowPath[i-1]}"][data-to="${nodeId}"]`);
+                if(connEl) connEl.classList.add('highlight');
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+            const finalConn = document.querySelector('.connection[data-from="retroalimentacion"][data-to="emisor"]');
+            if(finalConn) finalConn.classList.add('highlight');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            isFlowActive = false;
+            resetView();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            createElements();
+            setTimeout(() => {
+                positionNodes();
+                document.querySelectorAll('.node').forEach(node => node.addEventListener('click', handleNodeClick));
+            }, 0);
+            window.addEventListener('resize', positionNodes);
+        });
+    </script>
+</body>
+</html>
